@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibGen API Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .search-container {
+            margin-bottom: 20px;
+        }
+        .search-container input {
+            width: 300px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        .search-container button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        .book-list {
+            margin-top: 20px;
+        }
+        .book {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .book-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .book-details {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>LibGen API Search</h1>
+    <div class="search-container">
+        <input type="text" id="searchQuery" placeholder="Введите название книги">
+        <button onclick="searchBooks()">Найти</button>
+    </div>
+    <div id="bookList" class="book-list"></div>
+
+    <script>
+        const apiBaseURL = 'https://libgen-api-nu.vercel.app';
+
+        async function searchBooks() {
+            const query = document.getElementById('searchQuery').value;
+            const bookList = document.getElementById('bookList');
+            bookList.innerHTML = '';
+
+            if (!query) {
+                alert('Введите поисковый запрос.');
+                return;
+            }
+
+            
+                const response = await fetch(`${apiBaseURL}/search/title?query=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error('Ошибка при получении данных');
+
+                const books = await response.json();
+                if (books.length === 0) {
+                    bookList.innerHTML = '<p>Книги не найдены.</p>';
+                    return;
+                }
+
+                books.forEach(book => {
+                    const bookDiv = document.createElement('div');
+                    bookDiv.className = 'book';
+
+                    const title = document.createElement('div');
+                    title.className = 'book-title';
+                    title.textContent = book.Title;
+
+                    const details = document.createElement('div');
+                    details.className = 'book-details';
+                    details.innerHTML = `
+                        <p><strong>Автор:</strong> ${book.Author}</p>
+                        <p><strong>Год:</strong> ${book.Year}</p>
+                        <p><strong>Формат:</strong> ${book.Extension}</p>
+                    `;
+
+                    const downloadButton = document.createElement('button');
+                    downloadButton.textContent = 'Скачать';
+                    downloadButton.onclick = () => resolveLinks(book);
+
+                    bookDiv.appendChild(title);
+                    bookDiv.appendChild(details);
+                    bookDiv.appendChild(downloadButton);
+
+                    bookList.appendChild(bookDiv);
+                });
+           
+        }
+
+        async function resolveLinks(book) {
+            try {
+                const response = await fetch(`${apiBaseURL}/resolve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(book),
+                });
+
+                if (!response.ok) throw new Error('Ошибка при разрешении ссылок');
+
+                const links = await response.json();
+                const downloadURL = links.GET || links.Cloudflare || links.IPFS.io || links.Infura;
+
+                if (downloadURL) {
+                    window.open(downloadURL, '_blank');
+                } else {
+                    alert('Прямые ссылки для скачивания не найдены.');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Произошла ошибка при разрешении ссылок.');
+            }
+        }
+    </script>
+</body>
+</html>
